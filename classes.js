@@ -4,3 +4,10 @@ class instruction {
         this.input = input; 
     }
 }
+
+class variable {
+    constructor(name, value) {
+        this.name = name; 
+        this.value = value; 
+    }
+}

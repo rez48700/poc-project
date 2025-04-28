@@ -7,6 +7,21 @@ const vconsole = document.getElementById('vconsole');
 var compiledScript = [];
 var vmemory = [];
 
+// Classes
+class instruction {
+  constructor(type, input) {
+    this.type = type;
+    this.input = input;
+  }
+}
+
+class variable {
+  constructor(name, value) {
+    this.name = name;
+    this.value = value;
+  }
+}
+
 // Reset 
 resetButton.addEventListener('click', () => {
   vscript.value = '';
@@ -14,15 +29,15 @@ resetButton.addEventListener('click', () => {
 });
 
 // Tab handling
-vscript.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
-    e.preventDefault();
+vscript.addEventListener('keydown', (event) => {
+  if (event.key === 'Tab') {
+    event.preventDefault();
     
-    let start = vscript.selectionStart;
-    let end = vscript.selectionEnd;
+    let selectionStart = vscript.selectionStart;
+    let selectionEnd = vscript.selectionEnd;
 
-    vscript.value = vscript.value.substring(0, start) + '\t' + vscript.value.substring(end);
-    vscript.selectionStart = vscript.selectionEnd = start + 1;
+    vscript.value = vscript.value.substring(0, selectionStart) + '\t' + vscript.value.substring(selectionEnd);
+    vscript.selectionStart = vscript.selectionEnd = selectionStart + 1;
   }
 });
 
@@ -36,30 +51,61 @@ runButton.addEventListener('click', () => {
 function vcompile(script) {
   let instructions = [];
 
-  let lines = script.split('\n');
-  lines.forEach(line => {
+  let scriptLines = script.split('\n');
+  scriptLines.forEach(line => {
     // remove tabs and spaces
     line = line.trim();
     
-    if (line.startsWith('print(') && line.endsWith(')')) /*print statement*/ {
+    if (line.startsWith("print(") && line.endsWith(")")) /*print statement*/ {
       let input = line.slice(6, -1).trim(); 
       instructions.push({
-        type: 'print',
+        type: "print",
         input: input
       });
+    } else if (line.includes("=")) /*assign statement*/ {
+      let parts = line.split("=");
+      if (parts.length === 2) {
+        let name = parts[0].trim();
+        let value = parts[1].trim();
+        instructions.push({
+          type: "assign",
+          input: { name: name, value: value }
+        });
+      }
     }
-  });;
+  });
 
-  return instructions
+  return instructions;
+}
+
+// evaluate expressions using variables in vmemory
+function vevaluate(expression) {
+  vmemory.forEach(variableObject => {
+    // Use word boundaries to avoid partial replacements
+    expression = expression.replace(new RegExp("\\b" + variableObject.name + "\\b", "g"), variableObject.value);
+  });
+
+  return new Function("return " + expression)();
 }
 
 // run the compiled script
 function vexecute(script) {
   vconsole.value = "";
-  script.forEach(instruction => {
-    if (instruction.type == "print") /*print statement*/ {
-      let result = new Function('return ' + instruction.input)();
-      vconsole.value += result + '\n'
+  vmemory = [];
+
+  script.forEach(instructionObject => {
+    if (instructionObject.type == "print") /*print statement*/ {
+      let result = vevaluate(instructionObject.input);
+      vconsole.value += result + '\n';
+    } else if (instructionObject.type == "assign") /*assign statement*/ {
+      let variableName = instructionObject.input.name;
+      let evaluatedValue = vevaluate(instructionObject.input.value);
+      let existingVariable = vmemory.find(variableObject => variableObject.name === variableName);
+      if (existingVariable) {
+        existingVariable.value = evaluatedValue;
+      } else {
+        vmemory.push(new variable(variableName, evaluatedValue));
+      }
     }
   });
 }
